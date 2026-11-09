@@ -1,5 +1,53 @@
 # ez2lazer.Veldrid
 
-Veldrid is a cross-platform, graphics API-agnostic rendering and compute library for .NET. It provides a powerful, unified interface to a system's GPU and includes more advanced features than any other .NET library. Unlike other platform- or vendor-specific technologies, Veldrid can be used to create high-performance 3D applications that are truly portable.
+Ez2Lazer 维护的 [ppy/veldrid](https://github.com/ppy/veldrid) fork，供 [ez2lazer-framework](https://github.com/SK-la/ez2lazer-framework) 使用（10-bit / HDR 等 DXGI 扩展在此仓库演进）。
 
-As of April 2024, this repository no longer tracks and is incompatible with the upstream [Veldrid](https://github.com/veldrid/veldrid) repository. This decision has been made to allow for more agile development without concerns of breaking changes.
+Veldrid 是面向 .NET 的跨平台图形与计算库，后端含 Vulkan、Metal、Direct3D 11、OpenGL 等。
+
+## NuGet 包
+
+| PackageId | 说明 |
+|-----------|------|
+| `ez2lazer.Veldrid` | 主库 |
+| `ez2lazer.Veldrid.OpenGLBindings` | OpenGL 绑定（主包依赖） |
+| `ez2lazer.Veldrid.MetalBindings` | Metal 绑定（主包依赖） |
+
+程序集名仍为 `ppy.Veldrid*` ，与 upstream 二进制兼容；仅 NuGet **PackageId** 使用 `ez2lazer.*` 前缀。
+
+## 版本号
+
+发布使用 **`yyyy.mdd.patch`**，无预发布后缀，例如 `2026.1109.0`（2026 年 11 月 9 日第 0 次修订）。同日再发用 `2026.1109.1`。
+
+Git tag 可与 NuGet 版本相同，或带可选前缀 `v`（如 `v2026.1109.0`）；CI 会去掉 `v` 再写入包版本。
+
+## 发布（维护者）
+
+1. 在 [nuget.org](https://www.nuget.org) 为上述三个 **PackageId** 配置 **Trusted Publishing**（GitHub 仓库 `SK-la/ez2lazer.veldrid`，工作流 `deploy-pack.yml`）。
+2. 打 tag 并推送：
+   ```bash
+   git tag 2026.1109.0
+   git push origin 2026.1109.0
+   ```
+3. 或于 GitHub Actions 手动运行 **Pack and publish NuGet**，填写版本；若只想发到 GitHub Packages，将 `publish_target` 选为 `github`。
+
+推送 tag 时默认发布到 **nuget.org**（OIDC，用户 `SK_LA`）。手动 workflow 可选 **github** → `https://nuget.pkg.github.com/SK-la/index.json`。
+
+## 本地开发与 framework 联调
+
+在 `ez2lazer-framework` 根目录执行：
+
+```powershell
+.\UseLocalVeldrid.ps1
+```
+
+要求本仓库与 framework 为兄弟目录（`../ez2lazer-veldrid`）。脚本会改为 `ProjectReference` 并加入 solution filter。
+
+恢复 NuGet 包引用：
+
+```powershell
+dotnet add osu.Framework/osu.Framework.csproj package ez2lazer.Veldrid --version <版本>
+```
+
+## 许可证
+
+MIT（见 [LICENSE](LICENSE)）。

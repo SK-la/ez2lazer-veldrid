@@ -14,29 +14,22 @@
     <VorticeWindowsVersion>2.4.2</VorticeWindowsVersion>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/ppy/veldrid/master/LICENSE</PackageLicenseUrl>
+  <PropertyGroup Label="NuGet">
+    <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
+    <Authors>SK-la, Veldrid contributors</Authors>
+    <Company>Ez2Lazer</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <Copyright>Copyright 2024 (c) Eric Mellino and Veldrid contributors. All rights reserved.</Copyright>
-    <Authors>Eric Mellino, ppy Pty Ltd</Authors>
-    <RepositoryUrl>https://github.com/ppy/veldrid</RepositoryUrl>
-  </PropertyGroup>
-
-  <PropertyGroup>
+    <PackageProjectUrl>https://github.com/SK-la/ez2lazer.veldrid</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SK-la/ez2lazer.veldrid</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Copyright>Copyright (c) Veldrid contributors. Ez2Lazer packaging.</Copyright>
+    <PackageReleaseNotes>Ez2Lazer-maintained Veldrid fork.</PackageReleaseNotes>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <NerdbankGitVersioningVersion>3.4.255</NerdbankGitVersioningVersion>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" Version="$(NerdbankGitVersioningVersion)">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
 
 </Project>

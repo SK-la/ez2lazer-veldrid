@@ -1,0 +1,148 @@
+name: Pack and publish NuGet
+
+on:
+  push:
+    tags:
+      # NuGet 版本 yyyy.mdd.patch（如 2026.1109.0）；Git tag 可带可选前缀 v
+      - '20[0-9][0-9].[0-9][0-9][0-9].[0-9]'
+      - '20[0-9][0-9].[0-9][0-9][0-9][0-9].[0-9]'
+      - 'v20[0-9][0-9].[0-9][0-9][0-9].[0-9]'
+      - 'v20[0-9][0-9].[0-9][0-9][0-9][0-9].[0-9]'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'NuGet 包版本（与 tag 一致，例如 2026.1109.0）'
+        required: true
+        type: string
+      publish_target:
+        description: '发布目标'
+        required: true
+        type: choice
+        default: nuget.org
+        options:
+          - nuget.org
+          - github
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+jobs:
+  pack-veldrid:
+    name: Pack (ez2lazer.Veldrid*)
+    if: github.actor == 'SK-la'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Guard tag format
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          tag="${tag#v}"
+          if ! echo "$tag" | grep -E '^[0-9]{4}\.[0-9]{3,4}\.[0-9]+$' >/dev/null; then
+            echo "::error::Tag '$tag' does not match yyyy.mdd.patch (example 2026.1109.0)"
+            exit 1
+          fi
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ inputs.version }}"
+          else
+            v="${GITHUB_REF#refs/tags/}"
+          fi
+          v="${v#v}"
+          echo "value=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          dotnet pack src/Veldrid.sln -c Release `
+            /p:Version=${{ steps.version.outputs.value }} `
+            /p:ContinuousIntegrationBuild=true `
+            -o artifacts
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ez2lazer-veldrid
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+
+      - name: NuGet login (Trusted Publishing / OIDC)
+        if: github.event_name == 'push' || inputs.publish_target == 'nuget.org'
+        uses: NuGet/login@v1
+        id: nuget_login
+        with:
+          user: SK_LA
+
+      - name: Publish to nuget.org
+        if: github.event_name == 'push' || inputs.publish_target == 'nuget.org'
+        id: nuget_publish
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $apiKey = '${{ steps.nuget_login.outputs.NUGET_API_KEY }}'
+          $log = Join-Path $env:RUNNER_TEMP 'nuget-push.log'
+          $failed = $false
+          Get-ChildItem artifacts -Filter *.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName `
+              --api-key $apiKey `
+              --source https://api.nuget.org/v3/index.json `
+              --skip-duplicate `
+              2>&1 | Tee-Object -FilePath $log -Append
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+          }
+          if ($failed) {
+            $content = Get-Content $log -Raw
+            if ($content -notmatch 'already exists') {
+              Write-Error "推送失败。请在 nuget.org 为以下包 ID 配置 Trusted Publishing（仓库 SK-la/ez2lazer.veldrid、工作流 deploy-pack.yml）：`nez2lazer.Veldrid, ez2lazer.Veldrid.MetalBindings, ez2lazer.Veldrid.OpenGLBindings"
+              exit 1
+            }
+          }
+          Write-Host "Published: https://www.nuget.org/packages/ez2lazer.Veldrid/$version"
+
+      - name: Publish to GitHub Packages
+        if: inputs.publish_target == 'github'
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          Get-ChildItem artifacts -Filter *.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName `
+              --api-key ${{ secrets.GITHUB_TOKEN }} `
+              --source https://nuget.pkg.github.com/SK-la/index.json `
+              --skip-duplicate
+          }
+          Write-Host "Published: https://github.com/SK-la/ez2lazer.veldrid/pkgs/nuget"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.value }}'
+
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists, skip create."
+            exit 0
+          fi
+
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --generate-notes \
+            --verify-tag
+
+          gh release upload "$VERSION" artifacts/*.nupkg artifacts/*.snupkg --clobber

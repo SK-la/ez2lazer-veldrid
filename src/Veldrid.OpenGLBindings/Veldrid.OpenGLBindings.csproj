@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Label="Nuget">
-    <PackageId>ppy.Veldrid.OpenGLBindings</PackageId>
-    <Version>0.0.0</Version>
+    <PackageId>ez2lazer.Veldrid.OpenGLBindings</PackageId>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
