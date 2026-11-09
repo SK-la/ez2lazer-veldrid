@@ -23,8 +23,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Veldrid.MetalBindings\Veldrid.MetalBindings.csproj"/>
-    <ProjectReference Include="..\Veldrid.OpenGLBindings\Veldrid.OpenGLBindings.csproj"/>
+  <!-- Bundled via CopyProjectReferencesToPackage; must not become separate NuGet dependencies. -->
+    <ProjectReference Include="..\Veldrid.MetalBindings\Veldrid.MetalBindings.csproj">
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\Veldrid.OpenGLBindings\Veldrid.OpenGLBindings.csproj">
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>

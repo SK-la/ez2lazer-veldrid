@@ -14,6 +14,12 @@
     <VorticeWindowsVersion>2.4.2</VorticeWindowsVersion>
   </PropertyGroup>
 
+  <!-- Runtime identity must stay compatible with ppy.Veldrid.SPIRV (expects 4.9.0.0). NuGet package version uses PackageVersion / yyyy.mdd.patch. -->
+  <PropertyGroup Label="Assembly identity">
+    <AssemblyVersion>4.9.0.0</AssemblyVersion>
+    <FileVersion>4.9.0.0</FileVersion>
+  </PropertyGroup>
+
   <PropertyGroup Label="NuGet">
     <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
     <Authors>SK-la, Veldrid contributors</Authors>
