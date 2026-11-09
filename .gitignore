@@ -3,6 +3,7 @@ syntax: glob
 #NuGet things
 project.lock.json
 artifacts-test/
+artifacts-test2/
 
 ### VisualStudio ###
 
