@@ -30,6 +30,16 @@ namespace Veldrid
         /// </summary>
         public abstract string Name { get; set; }
 
+        /// <summary>
+        ///     Active display encoding for this swapchain (after any runtime fallback).
+        /// </summary>
+        public virtual SwapchainDisplayMode EffectiveDisplayMode => SwapchainDisplayMode.Standard8Bit;
+
+        /// <summary>
+        ///     Color surface format when exposed by the backend; otherwise <c>null</c>.
+        /// </summary>
+        public virtual PixelFormat? SurfaceColorPixelFormat => null;
+
         #region Disposal
 
         /// <summary>

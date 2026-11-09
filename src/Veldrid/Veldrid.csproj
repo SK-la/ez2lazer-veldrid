@@ -3,6 +3,7 @@
   <PropertyGroup Label="Nuget">
     <PackageId>ez2lazer.Veldrid</PackageId>
     <IsPackable>true</IsPackable>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -39,5 +40,11 @@
     <Description>A low-level, hardware-accelerated graphics and compute library for .NET, with backends for Vulkan, Metal, Direct3D 11, OpenGL, and OpenGL ES. Veldrid can be used to create high-performance 2D and 3D games, simulations, tools, and other graphical applications.</Description>
     <PackageTags>3D Graphics Direct3D DirectX Vulkan OpenGL Metal Core Standard Game</PackageTags>
   </PropertyGroup>
+
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target>
 
 </Project>

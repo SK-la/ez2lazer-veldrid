@@ -41,6 +41,11 @@ namespace Veldrid
         public bool ColorSrgb;
 
         /// <summary>
+        ///     Preferred swapchain display encoding. When not <see cref="SwapchainDisplayMode.Standard8Bit" />, overrides <see cref="ColorSrgb" /> on D3D11.
+        /// </summary>
+        public SwapchainDisplayMode DisplayMode;
+
+        /// <summary>
         ///     Constructs a new SwapchainDescription.
         /// </summary>
         /// <param name="source">
@@ -71,6 +76,7 @@ namespace Veldrid
             DepthFormat = depthFormat;
             SyncToVerticalBlank = syncToVerticalBlank;
             ColorSrgb = false;
+            DisplayMode = SwapchainDisplayMode.Standard8Bit;
         }
 
         /// <summary>
@@ -106,6 +112,7 @@ namespace Veldrid
             DepthFormat = depthFormat;
             SyncToVerticalBlank = syncToVerticalBlank;
             ColorSrgb = colorSrgb;
+            DisplayMode = SwapchainDisplayMode.Standard8Bit;
         }
 
         /// <summary>
@@ -120,7 +127,8 @@ namespace Veldrid
                    && Height.Equals(other.Height)
                    && DepthFormat == other.DepthFormat
                    && SyncToVerticalBlank.Equals(other.SyncToVerticalBlank)
-                   && ColorSrgb.Equals(other.ColorSrgb);
+                   && ColorSrgb.Equals(other.ColorSrgb)
+                   && DisplayMode.Equals(other.DisplayMode);
         }
 
         /// <summary>
@@ -135,7 +143,8 @@ namespace Veldrid
                 Height.GetHashCode(),
                 DepthFormat.GetHashCode(),
                 SyncToVerticalBlank.GetHashCode(),
-                ColorSrgb.GetHashCode());
+                ColorSrgb.GetHashCode(),
+                DisplayMode.GetHashCode());
         }
     }
 }

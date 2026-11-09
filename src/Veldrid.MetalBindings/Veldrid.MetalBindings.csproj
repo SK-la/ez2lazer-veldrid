@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Label="Nuget">
-    <PackageId>ez2lazer.Veldrid.MetalBindings</PackageId>
-    <IsPackable>true</IsPackable>
+    <!-- Packed inside ez2lazer.Veldrid; avoids separate Trusted Publishing on nuget.org -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <PropertyGroup>

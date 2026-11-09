@@ -71,9 +71,11 @@ jobs:
       - name: Pack
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          dotnet pack src/Veldrid.sln -c Release `
+          dotnet pack src/Veldrid/Veldrid.csproj -c Release `
             /p:Version=${{ steps.version.outputs.value }} `
             /p:ContinuousIntegrationBuild=true `
+            /p:IncludeSymbols=true `
+            /p:SymbolPackageFormat=snupkg `
             -o artifacts
 
       - uses: actions/upload-artifact@v7
@@ -108,8 +110,10 @@ jobs:
           }
           if ($failed) {
             $content = Get-Content $log -Raw
-            if ($content -notmatch 'already exists') {
-              Write-Error "推送失败。请在 nuget.org 为以下包 ID 配置 Trusted Publishing（仓库 SK-la/ez2lazer.veldrid、工作流 deploy-pack.yml）：`nez2lazer.Veldrid, ez2lazer.Veldrid.MetalBindings, ez2lazer.Veldrid.OpenGLBindings"
+            if ($content -match 'already exists|409|Conflict') {
+              Write-Host 'Some packages already exist; continuing.'
+            } else {
+              Write-Error "NuGet push failed. Ensure Trusted Publishing for ez2lazer.Veldrid on SK-la/ez2lazer-veldrid deploy-pack.yml. Log: $log"
               exit 1
             }
           }

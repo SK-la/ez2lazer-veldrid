@@ -8,11 +8,9 @@ Veldrid 是面向 .NET 的跨平台图形与计算库，后端含 Vulkan、Metal
 
 | PackageId | 说明 |
 |-----------|------|
-| `ez2lazer.Veldrid` | 主库 |
-| `ez2lazer.Veldrid.OpenGLBindings` | OpenGL 绑定（主包依赖） |
-| `ez2lazer.Veldrid.MetalBindings` | Metal 绑定（主包依赖） |
+| `ez2lazer.Veldrid` | 主库（内含 OpenGL / Metal 绑定程序集） |
 
-程序集名仍为 `ppy.Veldrid*` ，与 upstream 二进制兼容；仅 NuGet **PackageId** 使用 `ez2lazer.*` 前缀。
+程序集名仍为 `ppy.Veldrid*` ；NuGet 仅发布 **一个** 包，Trusted Publishing 只需配置 `ez2lazer.Veldrid`。
 
 ## 版本号
 
@@ -22,7 +20,7 @@ Git tag 可与 NuGet 版本相同，或带可选前缀 `v`（如 `v2026.1109.0`�
 
 ## 发布（维护者）
 
-1. 在 [nuget.org](https://www.nuget.org) 为上述三个 **PackageId** 配置 **Trusted Publishing**（GitHub 仓库 `SK-la/ez2lazer.veldrid`，工作流 `deploy-pack.yml`）。
+1. 在 [nuget.org](https://www.nuget.org) 为 **`ez2lazer.Veldrid`** 配置 **Trusted Publishing**（GitHub 仓库 `SK-la/ez2lazer-veldrid`，工作流 `deploy-pack.yml`）。
 2. 打 tag 并推送：
    ```bash
    git tag 2026.1109.0

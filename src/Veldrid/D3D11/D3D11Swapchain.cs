@@ -7,11 +7,16 @@ using SharpGen.Runtime;
 using Vortice;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
+using ColorSpaceType = Vortice.DXGI.ColorSpaceType;
 
 namespace Veldrid.D3D11
 {
     internal class D3D11Swapchain : Swapchain
     {
+        public override SwapchainDisplayMode EffectiveDisplayMode => effectiveDisplayMode;
+
+        public override PixelFormat? SurfaceColorPixelFormat => D3D11Formats.ToVdFormat(colorFormat);
+
         public override Framebuffer Framebuffer => framebuffer;
 
         public PresentFlags PresentFlags
@@ -92,7 +97,7 @@ namespace Veldrid.D3D11
 
         private readonly bool canTear;
         private readonly bool canCreateFrameLatencyWaitableObject;
-        private readonly Format colorFormat;
+        private Format colorFormat;
         private bool vsync;
         private D3D11Framebuffer framebuffer;
         private D3D11Texture depthTexture;
@@ -108,6 +113,8 @@ namespace Veldrid.D3D11
         private uint height;
 
         private ID3D11Texture2D backBufferTexture;
+        private SwapchainDisplayMode effectiveDisplayMode;
+        private bool useHighBitDepthColor;
 
         public D3D11Swapchain(D3D11GraphicsDevice gd, ref SwapchainDescription description)
         {
@@ -116,9 +123,8 @@ namespace Veldrid.D3D11
             depthFormat = description.DepthFormat;
             SyncToVerticalBlank = description.SyncToVerticalBlank;
 
-            colorFormat = description.ColorSrgb
-                ? Format.B8G8R8A8_UNorm_SRgb
-                : Format.B8G8R8A8_UNorm;
+            effectiveDisplayMode = description.DisplayMode;
+            resolveColorFormat();
 
             // previously we had an extension method ("GetParentOrNull") which makes this read a lot better,
             // but it resulted in AOT compilation crashes on iOS, therefore we can only do this inline.
@@ -133,7 +139,37 @@ namespace Veldrid.D3D11
             width = description.Width;
             height = description.Height;
 
-            recreateSwapchain();
+            tryCreateSwapchain();
+        }
+
+        private void resolveColorFormat()
+        {
+            useHighBitDepthColor = effectiveDisplayMode is SwapchainDisplayMode.Native10BitSdr or SwapchainDisplayMode.Hdr10;
+
+            if (useHighBitDepthColor)
+            {
+                colorFormat = Format.R10G10B10A2_UNorm;
+                return;
+            }
+
+            colorFormat = description.ColorSrgb
+                ? Format.B8G8R8A8_UNorm_SRgb
+                : Format.B8G8R8A8_UNorm;
+        }
+
+        private void tryCreateSwapchain()
+        {
+            try
+            {
+                recreateSwapchain();
+            }
+            catch when (useHighBitDepthColor)
+            {
+                effectiveDisplayMode = SwapchainDisplayMode.Standard8Bit;
+                useHighBitDepthColor = false;
+                resolveColorFormat();
+                recreateSwapchain();
+            }
         }
 
         #region Disposal
@@ -322,7 +358,40 @@ namespace Veldrid.D3D11
                 }
             }
 
+            applyDxgiColorSpace();
+
             Resize(width, height);
+        }
+
+        private void applyDxgiColorSpace()
+        {
+            if (DxgiSwapChain == null)
+                return;
+
+            ColorSpaceType? colorSpace = effectiveDisplayMode switch
+            {
+                SwapchainDisplayMode.Native10BitSdr => ColorSpaceType.RgbFullG22NoneP709,
+                SwapchainDisplayMode.Hdr10 => ColorSpaceType.RgbFullG2084NoneP2020,
+                _ => null,
+            };
+
+            if (colorSpace == null)
+                return;
+
+            using var swapChain3 = DxgiSwapChain.QueryInterfaceOrNull<IDXGISwapChain3>();
+
+            if (swapChain3 == null)
+                return;
+
+            try
+            {
+                swapChain3.SetColorSpace1(colorSpace.Value);
+            }
+            catch
+            {
+                if (useHighBitDepthColor)
+                    throw new VeldridException("Failed to set DXGI color space for high bit-depth swapchain.");
+            }
         }
 
         private class FrameLatencyWaitHandle : WaitHandle
