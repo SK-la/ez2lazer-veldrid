@@ -118,6 +118,10 @@ namespace Veldrid.D3D11
         private SwapchainDisplayMode effectiveDisplayMode;
         private bool useHighBitDepthColor;
         private MonitorDisplayCapabilities? monitorDisplay;
+        private float lastMaxMasteringNits = float.NaN;
+        private float lastMinMasteringNits = float.NaN;
+        private float lastMaxContentLightNits = float.NaN;
+        private float lastMaxFrameAverageNits = float.NaN;
 
         public D3D11Swapchain(D3D11GraphicsDevice gd, ref SwapchainDescription description)
         {
@@ -260,6 +264,10 @@ namespace Veldrid.D3D11
 
         private void recreateSwapchain()
         {
+            lastMaxMasteringNits = float.NaN;
+            lastMinMasteringNits = float.NaN;
+            lastMaxContentLightNits = float.NaN;
+            lastMaxFrameAverageNits = float.NaN;
             DxgiSwapChain?.Release();
             DxgiSwapChain?.Dispose();
             DxgiSwapChain = null;
@@ -368,7 +376,9 @@ namespace Veldrid.D3D11
                     using (var swapChain1 = dxgiFactory.CreateSwapChainForComposition(gd.Device, swapChainDescription)) DxgiSwapChain = swapChain1.QueryInterface<IDXGISwapChain2>();
                 }
 
+#pragma warning disable CA1416
                 var co = new ComObject(uwpSource.SwapChainPanelNative);
+#pragma warning restore CA1416
 
                 var swapchainPanelNative = co.QueryInterfaceOrNull<ISwapChainPanelNative>();
 
@@ -395,6 +405,7 @@ namespace Veldrid.D3D11
 
             applyDxgiColorSpace();
             updateMonitorDisplay();
+            applyHdr10MetadataFromMonitor();
 
             Resize(width, height);
         }
@@ -467,6 +478,99 @@ namespace Veldrid.D3D11
                 if (useHighBitDepthColor)
                     throw new VeldridException("Failed to set DXGI color space for high bit-depth swapchain.");
             }
+        }
+
+        public override void SetHdr10Metadata(float maxMasteringNits, float minMasteringNits, float maxContentLightNits, float maxFrameAverageNits)
+        {
+            if (effectiveDisplayMode != SwapchainDisplayMode.Hdr10 || DxgiSwapChain == null)
+                return;
+
+            if (lastMaxMasteringNits == maxMasteringNits
+                && lastMinMasteringNits == minMasteringNits
+                && lastMaxContentLightNits == maxContentLightNits
+                && lastMaxFrameAverageNits == maxFrameAverageNits)
+                return;
+
+            using var swapChain4 = DxgiSwapChain.QueryInterfaceOrNull<IDXGISwapChain4>();
+
+            if (swapChain4 == null)
+                return;
+
+            var meta = new DxgiHdrMetadataHdr10
+            {
+                // BT.2020 / D65, DXGI units of 0.00002.
+                RedPrimaryX = 35400,
+                RedPrimaryY = 14600,
+                GreenPrimaryX = 8500,
+                GreenPrimaryY = 39850,
+                BluePrimaryX = 6550,
+                BluePrimaryY = 2300,
+                WhitePointX = 15635,
+                WhitePointY = 16450,
+                MaxMasteringLuminance = toMasteringNits(maxMasteringNits),
+                MinMasteringLuminance = toMinMastering(minMasteringNits),
+                MaxContentLightLevel = toLightLevel(maxContentLightNits),
+                MaxFrameAverageLightLevel = toLightLevel(maxFrameAverageNits),
+            };
+
+            int size = Marshal.SizeOf<DxgiHdrMetadataHdr10>();
+            IntPtr ptr = Marshal.AllocHGlobal(size);
+
+            try
+            {
+                Marshal.StructureToPtr(meta, ptr, false);
+                swapChain4.SetHDRMetaData(HdrMetadataType.Hdr10, size, ptr);
+                lastMaxMasteringNits = maxMasteringNits;
+                lastMinMasteringNits = minMasteringNits;
+                lastMaxContentLightNits = maxContentLightNits;
+                lastMaxFrameAverageNits = maxFrameAverageNits;
+            }
+            catch
+            {
+                // Remote desktop / drivers without HDR metadata.
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+        }
+
+        private void applyHdr10MetadataFromMonitor()
+        {
+            if (effectiveDisplayMode != SwapchainDisplayMode.Hdr10)
+                return;
+
+            float peak = monitorDisplay?.MaxLuminance ?? 0;
+            float fullFrame = monitorDisplay?.MaxFullFrameLuminance ?? 0;
+            float min = monitorDisplay?.MinLuminance ?? 0;
+            float paper = fullFrame > 1 ? fullFrame : peak > 1 ? peak : 200f;
+            SetHdr10Metadata(peak > 1 ? peak : paper, min, paper, fullFrame > 1 ? fullFrame : paper);
+        }
+
+        private static uint toMasteringNits(float nits)
+            => (uint)Math.Clamp(MathF.Round(MathF.Max(nits, 1)), 1, 10000);
+
+        private static uint toMinMastering(float nits)
+            => (uint)Math.Clamp(MathF.Round(MathF.Max(nits, 0) * 10000f), 0, 10000 * 10000);
+
+        private static ushort toLightLevel(float nits)
+            => (ushort)Math.Clamp(MathF.Round(MathF.Max(nits, 1)), 1, 65535);
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct DxgiHdrMetadataHdr10
+        {
+            public ushort RedPrimaryX;
+            public ushort RedPrimaryY;
+            public ushort GreenPrimaryX;
+            public ushort GreenPrimaryY;
+            public ushort BluePrimaryX;
+            public ushort BluePrimaryY;
+            public ushort WhitePointX;
+            public ushort WhitePointY;
+            public uint MaxMasteringLuminance;
+            public uint MinMasteringLuminance;
+            public ushort MaxContentLightLevel;
+            public ushort MaxFrameAverageLightLevel;
         }
 
         private class FrameLatencyWaitHandle : WaitHandle

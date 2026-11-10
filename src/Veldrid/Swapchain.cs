@@ -43,6 +43,13 @@ namespace Veldrid
         /// <summary>Monitor DXGI capabilities when the backend can query the output attached to this swapchain.</summary>
         public virtual MonitorDisplayCapabilities? MonitorDisplay => null;
 
+        /// <summary>
+        /// HDR10 mastering / content luminance for DXGI (BT.2020 primaries). No-op on backends without HDR10.
+        /// </summary>
+        public virtual void SetHdr10Metadata(float maxMasteringNits, float minMasteringNits, float maxContentLightNits, float maxFrameAverageNits)
+        {
+        }
+
         #region Disposal
 
         /// <summary>
