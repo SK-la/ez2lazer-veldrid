@@ -393,7 +393,7 @@ namespace Veldrid.D3D11
 
             if ((flags & SwapChainFlags.FrameLatencyWaitableObject) > 0)
             {
-                using (var swapChain2 = DxgiSwapChain.QueryInterfaceOrNull<IDXGISwapChain2>())
+                using (var swapChain2 = DxgiSwapChain?.QueryInterfaceOrNull<IDXGISwapChain2>())
                 {
                     if (swapChain2 != null)
                     {
@@ -429,8 +429,8 @@ namespace Veldrid.D3D11
                 ColorSpaceType cs = desc.ColorSpace;
 
                 bool hdrSignal = cs is ColorSpaceType.RgbFullG2084NoneP2020
-                    or ColorSpaceType.RgbFullG10NoneP709
-                    or ColorSpaceType.RgbStudioG2084NoneP2020;
+                                       or ColorSpaceType.RgbFullG10NoneP709
+                                       or ColorSpaceType.RgbStudioG2084NoneP2020;
 
                 monitorDisplay = new MonitorDisplayCapabilities
                 {

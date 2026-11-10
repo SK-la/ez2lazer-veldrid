@@ -80,16 +80,24 @@ namespace Veldrid.D3D11
             }
 
             Buffer = device.CreateBuffer(bd);
+
+            // See: https://github.com/ppy/veldrid/issues/53
+            GC.SuppressFinalize(Buffer);
         }
 
         #region Disposal
 
         public override void Dispose()
         {
+            var buffer = Buffer;
+
+            if (buffer.NativePointer == IntPtr.Zero)
+                return;
+
             foreach (var kvp in srvs) kvp.Value.Dispose();
 
             foreach (var kvp in uavs) kvp.Value.Dispose();
-            Buffer.Dispose();
+            buffer.Dispose();
         }
 
         #endregion
@@ -136,7 +144,9 @@ namespace Veldrid.D3D11
                     (int)size / 4,
                     BufferExtendedShaderResourceViewFlags.Raw);
 
-                return device.CreateShaderResourceView(Buffer, srvDesc);
+                var srv = device.CreateShaderResourceView(Buffer, srvDesc);
+                GC.SuppressFinalize(srv);
+                return srv;
             }
             else
             {
@@ -146,7 +156,9 @@ namespace Veldrid.D3D11
                 };
                 srvDesc.Buffer.NumElements = (int)(size / structureByteStride);
                 srvDesc.Buffer.ElementOffset = (int)(offset / structureByteStride);
-                return device.CreateShaderResourceView(Buffer, srvDesc);
+                var srv = device.CreateShaderResourceView(Buffer, srvDesc);
+                GC.SuppressFinalize(srv);
+                return srv;
             }
         }
 
@@ -160,7 +172,9 @@ namespace Veldrid.D3D11
                     (int)size / 4,
                     BufferUnorderedAccessViewFlags.Raw);
 
-                return device.CreateUnorderedAccessView(Buffer, uavDesc);
+                var uav = device.CreateUnorderedAccessView(Buffer, uavDesc);
+                GC.SuppressFinalize(uav);
+                return uav;
             }
             else
             {
@@ -170,7 +184,9 @@ namespace Veldrid.D3D11
                     (int)(size / structureByteStride)
                 );
 
-                return device.CreateUnorderedAccessView(Buffer, uavDesc);
+                var uav = device.CreateUnorderedAccessView(Buffer, uavDesc);
+                GC.SuppressFinalize(uav);
+                return uav;
             }
         }
 
