@@ -40,6 +40,9 @@ namespace Veldrid
         /// </summary>
         public virtual PixelFormat? SurfaceColorPixelFormat => null;
 
+        /// <summary>Monitor DXGI capabilities when the backend can query the output attached to this swapchain.</summary>
+        public virtual MonitorDisplayCapabilities? MonitorDisplay => null;
+
         #region Disposal
 
         /// <summary>
