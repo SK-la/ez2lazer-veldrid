@@ -17,6 +17,8 @@ namespace Veldrid.D3D11
 
         public override PixelFormat? SurfaceColorPixelFormat => D3D11Formats.ToVdFormat(colorFormat);
 
+        public override MonitorDisplayCapabilities? MonitorDisplay => monitorDisplay;
+
         public override Framebuffer Framebuffer => framebuffer;
 
         public PresentFlags PresentFlags
@@ -115,6 +117,7 @@ namespace Veldrid.D3D11
         private ID3D11Texture2D backBufferTexture;
         private SwapchainDisplayMode effectiveDisplayMode;
         private bool useHighBitDepthColor;
+        private MonitorDisplayCapabilities? monitorDisplay;
 
         public D3D11Swapchain(D3D11GraphicsDevice gd, ref SwapchainDescription description)
         {
@@ -163,7 +166,7 @@ namespace Veldrid.D3D11
             {
                 recreateSwapchain();
             }
-            catch when (useHighBitDepthColor)
+            catch (Exception) when (useHighBitDepthColor)
             {
                 effectiveDisplayMode = SwapchainDisplayMode.Standard8Bit;
                 useHighBitDepthColor = false;
@@ -289,23 +292,55 @@ namespace Veldrid.D3D11
 
             if (description.Source is Win32SwapchainSource win32Source)
             {
-                var dxgiScDesc = new SwapChainDescription
+                // Standard stays on the original CreateSwapChain path. Flip-model ForHwnd is only for 10-bit/HDR.
+                if (!useHighBitDepthColor)
                 {
-                    BufferCount = 2,
-                    Windowed = true,
-                    BufferDescription = new ModeDescription(
-                        (int)width, (int)height, colorFormat),
-                    OutputWindow = win32Source.Hwnd,
-                    SampleDescription = new SampleDescription(1, 0),
-                    SwapEffect = swapEffect,
-                    BufferUsage = Usage.RenderTargetOutput,
-                    Flags = flags
-                };
+                    var dxgiScDesc = new SwapChainDescription
+                    {
+                        BufferCount = 2,
+                        Windowed = true,
+                        BufferDescription = new ModeDescription((int)width, (int)height, colorFormat),
+                        OutputWindow = win32Source.Hwnd,
+                        SampleDescription = new SampleDescription(1, 0),
+                        SwapEffect = swapEffect,
+                        BufferUsage = Usage.RenderTargetOutput,
+                        Flags = flags
+                    };
 
-                using (var dxgiFactory = gd.Adapter.GetParent<IDXGIFactory>())
+                    using (var dxgiFactory = gd.Adapter.GetParent<IDXGIFactory>())
+                    {
+                        DxgiSwapChain = dxgiFactory.CreateSwapChain(gd.Device, dxgiScDesc);
+                        dxgiFactory.MakeWindowAssociation(win32Source.Hwnd, WindowAssociationFlags.IgnoreAltEnter);
+                    }
+                }
+                else
                 {
-                    DxgiSwapChain = dxgiFactory.CreateSwapChain(gd.Device, dxgiScDesc);
-                    dxgiFactory.MakeWindowAssociation(win32Source.Hwnd, WindowAssociationFlags.IgnoreAltEnter);
+                    int bufferWidth = Math.Max(1, (int)width);
+                    int bufferHeight = Math.Max(1, (int)height);
+
+                    using (var dxgiFactory2 = gd.Adapter.GetParent(out IDXGIFactory2 factory2).Success ? factory2 : null)
+                    {
+                        if (dxgiFactory2 == null)
+                            throw new VeldridException("10-bit/HDR swapchain requires DXGI 1.2.");
+
+                        var swapChainDescription = new SwapChainDescription1
+                        {
+                            AlphaMode = AlphaMode.Ignore,
+                            BufferCount = 2,
+                            Format = colorFormat,
+                            Width = bufferWidth,
+                            Height = bufferHeight,
+                            SampleDescription = new SampleDescription(1, 0),
+                            SwapEffect = swapEffect,
+                            BufferUsage = Usage.RenderTargetOutput,
+                            Scaling = Scaling.Stretch,
+                            Stereo = false,
+                            Flags = flags,
+                        };
+
+                        DxgiSwapChain = dxgiFactory2.CreateSwapChainForHwnd(gd.Device, win32Source.Hwnd, swapChainDescription);
+                        dxgiFactory2.MakeWindowAssociation(win32Source.Hwnd, WindowAssociationFlags.IgnoreAltEnter);
+                    }
                 }
             }
             else if (description.Source is UwpSwapchainSource uwpSource)
@@ -359,8 +394,47 @@ namespace Veldrid.D3D11
             }
 
             applyDxgiColorSpace();
+            updateMonitorDisplay();
 
             Resize(width, height);
+        }
+
+        private void updateMonitorDisplay()
+        {
+            monitorDisplay = null;
+
+            if (DxgiSwapChain == null)
+                return;
+
+            try
+            {
+                using var output = DxgiSwapChain.GetContainingOutput();
+                using var output6 = output.QueryInterfaceOrNull<IDXGIOutput6>();
+
+                if (output6 == null)
+                    return;
+
+                OutputDescription1 desc = output6.Description1;
+                ColorSpaceType cs = desc.ColorSpace;
+
+                bool hdrSignal = cs is ColorSpaceType.RgbFullG2084NoneP2020
+                    or ColorSpaceType.RgbFullG10NoneP709
+                    or ColorSpaceType.RgbStudioG2084NoneP2020;
+
+                monitorDisplay = new MonitorDisplayCapabilities
+                {
+                    MonitorName = desc.DeviceName.TrimEnd('\0'),
+                    BitsPerColor = (byte)Math.Clamp(desc.BitsPerColor, 0, 255),
+                    HdrSignal = hdrSignal,
+                    MaxLuminance = desc.MaxLuminance,
+                    MinLuminance = desc.MinLuminance,
+                    MaxFullFrameLuminance = desc.MaxFullFrameLuminance,
+                };
+            }
+            catch
+            {
+                // Headless / remote desktop may not expose output metadata.
+            }
         }
 
         private void applyDxgiColorSpace()
@@ -368,9 +442,10 @@ namespace Veldrid.D3D11
             if (DxgiSwapChain == null)
                 return;
 
+            // Native 10-bit SDR: keep default DXGI colour space until the compositor encodes for the display.
+            // Forcing G22/P709 here mis-matches the SDR sRGB-ish framebuffer and can blow contrast on some paths.
             ColorSpaceType? colorSpace = effectiveDisplayMode switch
             {
-                SwapchainDisplayMode.Native10BitSdr => ColorSpaceType.RgbFullG22NoneP709,
                 SwapchainDisplayMode.Hdr10 => ColorSpaceType.RgbFullG2084NoneP2020,
                 _ => null,
             };

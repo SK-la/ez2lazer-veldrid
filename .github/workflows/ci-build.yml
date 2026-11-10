@@ -25,5 +25,5 @@ jobs:
 
       - name: Pack (smoke)
         run: |
-          dotnet pack src/Veldrid.sln -c Release --no-build /p:Version=0.0.0-ci
+          dotnet pack src/Veldrid/Veldrid.csproj -c Release --no-restore /p:Version=0.0.0-ci
           Get-ChildItem -Recurse bin/Packages/Release/*.nupkg
