@@ -20,6 +20,15 @@
     <PackageReference Include="ppy.Vk" Version="1.0.26" Condition="'$(ExcludeVulkan)' != 'true'"/>
     <PackageReference Include="Vortice.D3DCompiler" Version="$(VorticeWindowsVersion)"/>
     <PackageReference Include="Vortice.Direct3D11" Version="$(VorticeWindowsVersion)"/>
+    <!-- Binaries ship in this package. Private so upstream ppy.Veldrid is not a dependency. -->
+    <PackageReference Include="ppy.Veldrid.SPIRV" Version="1.0.15-g5911265ec3" GeneratePathProperty="true">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>all</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="ppy.Veldrid" Version="4.9.69-ga405fe8484">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>all</ExcludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -49,6 +58,28 @@
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
     <ItemGroup>
       <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="IncludeUpstreamSpirv" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_UpstreamSpirvRoot Condition="'$(Pkgppy_Veldrid_SPIRV)' != ''">$(Pkgppy_Veldrid_SPIRV)\</_UpstreamSpirvRoot>
+      <_UpstreamSpirvRoot Condition="'$(_UpstreamSpirvRoot)' == ''">$(NuGetPackageRoot)ppy.veldrid.spirv\1.0.15-g5911265ec3\</_UpstreamSpirvRoot>
+    </PropertyGroup>
+    <Error Text="ppy.Veldrid.SPIRV 1.0.15-g5911265ec3 was not restored." Condition="!Exists('$(_UpstreamSpirvRoot)lib\net8.0\ppy.Veldrid.SPIRV.dll')" />
+    <ItemGroup>
+      <_SpirvLib Include="$(_UpstreamSpirvRoot)lib\net8.0\*.*" />
+      <_SpirvRuntime Include="$(_UpstreamSpirvRoot)runtimes\**\*.*" />
+    </ItemGroup>
+    <ItemGroup>
+      <None Include="@(_SpirvLib)">
+        <Pack>true</Pack>
+        <PackagePath>lib/net8.0/</PackagePath>
+      </None>
+      <None Include="@(_SpirvRuntime)">
+        <Pack>true</Pack>
+        <PackagePath>runtimes/</PackagePath>
+      </None>
     </ItemGroup>
   </Target>
 

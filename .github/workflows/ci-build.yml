@@ -26,4 +26,17 @@ jobs:
       - name: Pack (smoke)
         run: |
           dotnet pack src/Veldrid/Veldrid.csproj -c Release --no-restore /p:Version=0.0.0-ci
+          $nupkg = Get-ChildItem bin/Packages/Release/ez2lazer.Veldrid.*.nupkg | Where-Object { $_.Name -notlike 'ez2lazer.Veldrid.SPIRV*' } | Select-Object -First 1
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkg.FullName)
+          $entry = $zip.Entries | Where-Object { $_.FullName -like '*.nuspec' } | Select-Object -First 1
+          $reader = New-Object System.IO.StreamReader($entry.Open())
+          $xml = $reader.ReadToEnd()
+          $reader.Dispose()
+          $names = @($zip.Entries | ForEach-Object { $_.FullName })
+          $zip.Dispose()
+          if ($xml -match 'id="ppy.Veldrid') { throw 'ez2lazer.Veldrid still depends on an upstream Veldrid package.' }
+          if ($names -notcontains 'lib/net8.0/ppy.Veldrid.dll') { throw 'package is missing ppy.Veldrid.dll.' }
+          if ($names -notcontains 'lib/net8.0/ppy.Veldrid.SPIRV.dll') { throw 'package is missing ppy.Veldrid.SPIRV.dll.' }
+          if ($names -notcontains 'runtimes/win-x64/native/libveldrid-spirv.dll') { throw 'package is missing win-x64 spirv native.' }
           Get-ChildItem -Recurse bin/Packages/Release/*.nupkg

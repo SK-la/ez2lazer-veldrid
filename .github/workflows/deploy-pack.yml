@@ -71,8 +71,9 @@ jobs:
       - name: Pack
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $version = '${{ steps.version.outputs.value }}'
           dotnet pack src/Veldrid/Veldrid.csproj -c Release `
-            /p:PackageVersion=${{ steps.version.outputs.value }} `
+            /p:PackageVersion=$version `
             /p:AssemblyVersion=4.9.0.0 `
             /p:FileVersion=4.9.0.0 `
             /p:ContinuousIntegrationBuild=true `
